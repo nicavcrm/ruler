@@ -8,7 +8,9 @@ This tool is designed for developers who use both Cursor and GitHub Copilot and 
 
 - **Bidirectional Conversion**: Convert rules from Cursor to GitHub Copilot (`c2g`) and back (`g2c`).
 - **File & Directory Mapping**: Automatically handles file extension changes (`.mdc` ↔ `.md`) and directory structures (`.cursor/rules` ↔ `.github/instructions`).
-- **YAML Frontmatter Transformation**: Intelligently converts metadata between Cursor's and GitHub Copilot's YAML frontmatter schemas.
+- **YAML Frontmatter Transformation**: Intelligently converts metadata between Cursor's and GitHub Copilot's YAML frontmatter schemas with support for multiple `globs` formats.
+- **Flexible Parsing**: Handles various YAML formats including arrays, strings, comma-separated values, and non-standard formats.
+- **Error Resilience**: Continues processing files even if some fail to parse, reporting errors without aborting the entire conversion.
 - **Content Preservation**: Keeps your rule content in Markdown untouched during conversion.
 - **Nested Structure Support**: Preserves nested directory structures within the rules folders.
 
@@ -104,24 +106,30 @@ Both source and target directories are now optional and have sensible defaults:
 | Cursor (`.mdc`) | GitHub Copilot (`.md`) | Conversion Logic |
 | :--- | :--- | :--- |
 | `description` | `description` | Direct 1:1 mapping. |
-| `globs` (array) | `applyTo` (string) | `c2g`: Joins the array into a comma-separated string.<br>`g2c`: Splits the comma-separated string into an array. |
+| `globs` (array/string) | `applyTo` (string) | `c2g`: Joins arrays or parses comma-separated strings into a comma-separated format.<br>`g2c`: Splits the comma-separated string into an array. Supports multiple input formats. |
 | `alwaysApply` (bool) | `applyTo` (string) | `c2g`: If `true`, sets `applyTo` to `"**"`.<br>`g2c`: If `applyTo` is `"**"`, sets `alwaysApply` to `true`. |
 
 ## Flexible Configuration
 
 ### Globs Field Format
 
-The tool now supports both string and array formats for the `globs` field in Cursor `.mdc` files:
+The tool supports multiple formats for the `globs` field in Cursor `.mdc` files, providing maximum compatibility:
 
 ```yaml
 # Array format (recommended)
 globs: ["*.ts", "*.tsx"]
 
-# String format (also supported)
+# Single string format
 globs: "*.ts"
+
+# Comma-separated string format
+globs: "*.ts,*.tsx,**/*.spec.ts"
+
+# Multiple quoted strings format (YAML flow sequence style)
+globs: "*.ts", "*.tsx", "**/*.spec.ts"
 ```
 
-Both formats will be converted correctly to GitHub Copilot's `applyTo` field format.
+All formats will be converted correctly to GitHub Copilot's `applyTo` field format, and the tool can handle mixed formats within the same project.
 
 ## Sample File Examples
 
@@ -135,6 +143,26 @@ alwaysApply: false
 ---
 
 Always use `const` or `let` instead of `var`.
+```
+
+### Alternative Cursor Rule Formats
+
+The tool also handles these equivalent formats:
+
+```yaml
+---
+description: "Enforce TypeScript best practices"
+globs: "**/src/*.ts", "**/src/*.tsx"  # Multiple quoted strings
+alwaysApply: false
+---
+```
+
+```yaml
+---
+description: "Enforce TypeScript best practices"
+globs: "**/src/*.ts,**/src/*.tsx"  # Comma-separated string
+alwaysApply: false
+---
 ```
 
 ### GitHub Copilot Instruction (`.github/instructions/typescript.instructions.md`)
@@ -207,9 +235,10 @@ make dev-check  # Runs fmt, lint, check, unit-test, and quick-test
 
 The test suite covers:
 - **Unit tests** for core functionality
-- **Integration tests** with various file formats
+- **Integration tests** with various file formats and `globs` configurations
 - **Round-trip conversions** (Cursor → GitHub → Cursor)
-- **Error handling** for malformed files
+- **Error handling** for malformed files and non-standard YAML formats
+- **Multiple `globs` formats** (arrays, strings, comma-separated, quoted strings)
 - **Default directory behavior**
 - **Performance testing** with multiple files
 - **CLI command validation**
@@ -239,6 +268,8 @@ make check
 
 - **Unsupported Cursor Rules**: Cursor's `Agent Requested` and `Manual` rule types do not have a direct equivalent in GitHub Copilot. While the content of these rules will be converted, they will not be automatically triggered in GitHub Copilot. You will need to reference them manually.
 - **Primary Instruction File**: GitHub Copilot has a special `.github/copilot-instructions.md` file for rules that are always active. A Cursor rule with `alwaysApply: true` is a good candidate for this file. The tool currently converts it to a standard instruction with `applyTo: "**"`, but you can move the content to the primary instruction file manually.
+- **YAML Format Compatibility**: The tool handles non-standard YAML formats (like `globs: "pattern1", "pattern2"`) by preprocessing them into valid YAML before parsing. This ensures maximum compatibility with existing rule files.
+- **Error Handling**: If individual files fail to parse, the tool reports the error and continues processing other files rather than aborting the entire conversion.
 
 ## Contributing
 
