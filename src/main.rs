@@ -35,6 +35,8 @@ enum ConversionMode {
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct CursorMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -43,6 +45,12 @@ struct CursorMetadata {
     globs: Option<Vec<String>>,
     #[serde(rename = "alwaysApply", skip_serializing_if = "Option::is_none")]
     always_apply: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    authors: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    version: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -53,7 +61,11 @@ struct GithubMetadata {
     apply_to: Option<String>,
 }
 
-// Custom deserializer to handle both string and array formats for globs
+// Custom deserializer to handle multiple formats for globs:
+// - Array: ["glob1", "glob2"]
+// - Single string: "glob1"
+// - Comma-separated string: "glob1,glob2"
+// - Multiple quoted strings: "glob1", "glob2"
 fn deserialize_globs<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -67,23 +79,39 @@ where
         type Value = Option<Vec<String>>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a string or array of strings")
+            formatter.write_str("a string, array of strings, or comma-separated values")
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
         where
             E: de::Error,
         {
-            // Split by comma and trim whitespace, but only if there are commas
+            // Split by comma and trim whitespace, removing quotes if present
             if value.contains(',') {
                 let globs: Vec<String> = value
                     .split(',')
-                    .map(|s| s.trim().to_string())
+                    .map(|s| {
+                        let trimmed = s.trim();
+                        // Remove surrounding quotes if present
+                        if (trimmed.starts_with('"') && trimmed.ends_with('"')) ||
+                           (trimmed.starts_with('\'') && trimmed.ends_with('\'')) {
+                            trimmed[1..trimmed.len()-1].to_string()
+                        } else {
+                            trimmed.to_string()
+                        }
+                    })
                     .filter(|s| !s.is_empty())
                     .collect();
                 Ok(Some(globs))
             } else {
-                Ok(Some(vec![value.to_string()]))
+                // Single string, remove quotes if present
+                let cleaned = if (value.starts_with('"') && value.ends_with('"')) ||
+                                 (value.starts_with('\'') && value.ends_with('\'')) {
+                    value[1..value.len()-1].to_string()
+                } else {
+                    value.to_string()
+                };
+                Ok(Some(vec![cleaned]))
             }
         }
 
@@ -328,8 +356,11 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
 
     // Convert Cursor metadata to GitHub metadata
     let github_metadata = if let Some(fm) = frontmatter {
-        let cursor_meta: CursorMetadata = serde_yaml::from_str(&fm)
-            .with_context(|| "Failed to parse Cursor frontmatter")?;
+        // Try to handle the non-standard YAML format by preprocessing it
+        let preprocessed_fm = preprocess_frontmatter(&fm);
+
+        let cursor_meta: CursorMetadata = serde_yaml::from_str(&preprocessed_fm)
+            .with_context(|| format!("Failed to parse Cursor frontmatter after preprocessing: {}", preprocessed_fm))?;
 
         let github_meta = GithubMetadata {
             description: cursor_meta.description,
@@ -447,6 +478,65 @@ fn parse_frontmatter(content: &str) -> Result<(Option<String>, String)> {
     }
 }
 
+fn preprocess_frontmatter(frontmatter: &str) -> String {
+    let mut result = String::new();
+
+    for line in frontmatter.lines() {
+        if let Some(colon_pos) = line.find(':') {
+            let key = &line[..colon_pos];
+            let value = &line[colon_pos + 1..].trim();
+
+            // Special handling for globs field with comma-separated strings
+            if key.trim() == "globs" && value.contains(',') && !value.starts_with('[') {
+                // Handle two formats:
+                // 1. "string1", "string2" (multiple quoted strings)
+                // 2. "string1,string2,string3" (single quoted string with commas)
+
+                let mut array_items = Vec::new();
+
+                // Check if it's format 1: multiple quoted strings separated by commas
+                if value.contains("\", \"") || value.contains("', '") {
+                    // Split on commas but preserve quoted strings
+                    for item in value.split(',') {
+                        let trimmed = item.trim();
+                        if !trimmed.is_empty() {
+                            array_items.push(trimmed.to_string());
+                        }
+                    }
+                } else {
+                    // Handle format 2: single string with comma-separated values
+                    // First remove outer quotes if present
+                    let unquoted = if (value.starts_with('"') && value.ends_with('"')) ||
+                                     (value.starts_with('\'') && value.ends_with('\'')) {
+                        &value[1..value.len()-1]
+                    } else {
+                        value
+                    };
+
+                    // Split by comma and quote each item
+                    for item in unquoted.split(',') {
+                        let trimmed = item.trim();
+                        if !trimmed.is_empty() {
+                            array_items.push(format!("\"{}\"", trimmed));
+                        }
+                    }
+                }
+
+                if !array_items.is_empty() {
+                    result.push_str(&format!("{}: [{}]\n", key, array_items.join(", ")));
+                    continue;
+                }
+            }
+        }
+
+        // For all other lines, keep as is
+        result.push_str(line);
+        result.push('\n');
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -503,6 +593,42 @@ This is a test rule with comma-separated globs."#;
         assert_eq!(
             body.trim(),
             "This is a test rule with comma-separated globs."
+        );
+    }
+
+    #[test]
+    fn test_multiple_quoted_strings_globs() {
+        let content = r#"---
+description: "Test multiple quoted strings"
+globs: "**/mode-transition*/**", "**/context-preservation*/**"
+alwaysApply: false
+---
+
+This is a test rule with multiple quoted strings format."#;
+
+        let (frontmatter, body) = parse_frontmatter(content).unwrap();
+        assert!(frontmatter.is_some());
+
+        // Preprocess the frontmatter to handle the non-standard format
+        let preprocessed_fm = preprocess_frontmatter(&frontmatter.unwrap());
+
+        // Test that the frontmatter can be parsed correctly after preprocessing
+        let cursor_meta: CursorMetadata = serde_yaml::from_str(&preprocessed_fm).unwrap();
+        assert_eq!(
+            cursor_meta.description,
+            Some("Test multiple quoted strings".to_string())
+        );
+        assert_eq!(
+            cursor_meta.globs,
+            Some(vec![
+                "**/mode-transition*/**".to_string(),
+                "**/context-preservation*/**".to_string()
+            ])
+        );
+        assert_eq!(cursor_meta.always_apply, Some(false));
+        assert_eq!(
+            body.trim(),
+            "This is a test rule with multiple quoted strings format."
         );
     }
 }
