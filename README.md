@@ -162,12 +162,77 @@ cargo build
 
 The executable will be at `target/debug/ruler`.
 
-### Running Tests
+### Testing
 
-To run the test suite:
+The project includes comprehensive testing scripts to ensure reliability:
 
+#### Quick Testing
+For rapid development cycles:
+```bash
+./quick-test.sh
+# or
+make quick-test
+```
+
+#### Comprehensive Testing
+For thorough validation:
+```bash
+./test.sh
+# or
+make test
+```
+
+#### CI/CD Testing
+For continuous integration environments:
+```bash
+./ci-test.sh
+# or
+make ci-test
+```
+
+#### Unit Tests Only
 ```bash
 cargo test
+# or
+make unit-test
+```
+
+#### Development Workflow
+Before committing code:
+```bash
+make dev-check  # Runs fmt, lint, check, unit-test, and quick-test
+```
+
+### Test Coverage
+
+The test suite covers:
+- **Unit tests** for core functionality
+- **Integration tests** with various file formats
+- **Round-trip conversions** (Cursor → GitHub → Cursor)
+- **Error handling** for malformed files
+- **Default directory behavior**
+- **Performance testing** with multiple files
+- **CLI command validation**
+
+### Code Quality
+
+Use these commands to maintain code quality:
+
+```bash
+# Format code
+cargo fmt
+# or
+make fmt
+
+# Run linter
+cargo clippy
+# or
+make lint
+
+# Check compilation
+cargo check
+# or
+make check
 ```
 
 ## Edge Cases and Limitations

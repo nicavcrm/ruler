@@ -36,7 +36,10 @@ enum ConversionMode {
 struct CursorMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_globs")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_globs"
+    )]
     globs: Option<Vec<String>>,
     #[serde(rename = "alwaysApply", skip_serializing_if = "Option::is_none")]
     always_apply: Option<bool>,
@@ -71,7 +74,17 @@ where
         where
             E: de::Error,
         {
-            Ok(Some(vec![value.to_string()]))
+            // Split by comma and trim whitespace, but only if there are commas
+            if value.contains(',') {
+                let globs: Vec<String> = value
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                Ok(Some(globs))
+            } else {
+                Ok(Some(vec![value.to_string()]))
+            }
         }
 
         fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -108,13 +121,21 @@ fn main() -> Result<()> {
 
     match cli.mode {
         ConversionMode::C2g => {
-            let from_dir = cli.from_folder.unwrap_or_else(|| PathBuf::from(".cursor/rules"));
-            let to_dir = cli.to_folder.unwrap_or_else(|| PathBuf::from(".github/instructions"));
+            let from_dir = cli
+                .from_folder
+                .unwrap_or_else(|| PathBuf::from(".cursor/rules"));
+            let to_dir = cli
+                .to_folder
+                .unwrap_or_else(|| PathBuf::from(".github/instructions"));
             convert_cursor_to_github(&from_dir, &to_dir)
         }
         ConversionMode::G2c => {
-            let from_dir = cli.from_folder.unwrap_or_else(|| PathBuf::from(".github/instructions"));
-            let to_dir = cli.to_folder.unwrap_or_else(|| PathBuf::from(".cursor/rules"));
+            let from_dir = cli
+                .from_folder
+                .unwrap_or_else(|| PathBuf::from(".github/instructions"));
+            let to_dir = cli
+                .to_folder
+                .unwrap_or_else(|| PathBuf::from(".cursor/rules"));
             convert_github_to_cursor(&from_dir, &to_dir)
         }
     }
@@ -138,12 +159,14 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
     }
 
     for mdc_file in mdc_files {
-        let relative_path = mdc_file.strip_prefix(from_dir)
+        let relative_path = mdc_file
+            .strip_prefix(from_dir)
             .with_context(|| "Failed to get relative path")?;
 
         // Change extension from .mdc to .instructions.md
         let mut target_path = to_dir.join(relative_path);
-        let file_stem = target_path.file_stem()
+        let file_stem = target_path
+            .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("file");
         target_path.set_file_name(format!("{}.instructions.md", file_stem));
@@ -155,7 +178,11 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
         }
 
         convert_mdc_to_md(&mdc_file, &target_path)?;
-        println!("Converted: {} -> {}", mdc_file.display(), target_path.display());
+        println!(
+            "Converted: {} -> {}",
+            mdc_file.display(),
+            target_path.display()
+        );
     }
 
     println!("Conversion completed successfully!");
@@ -180,7 +207,8 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
     }
 
     for md_file in md_files {
-        let relative_path = md_file.strip_prefix(from_dir)
+        let relative_path = md_file
+            .strip_prefix(from_dir)
             .with_context(|| "Failed to get relative path")?;
 
         // Change extension from .instructions.md to .mdc
@@ -201,7 +229,11 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
         }
 
         convert_md_to_mdc(&md_file, &target_path)?;
-        println!("Converted: {} -> {}", md_file.display(), target_path.display());
+        println!(
+            "Converted: {} -> {}",
+            md_file.display(),
+            target_path.display()
+        );
     }
 
     println!("Conversion completed successfully!");
@@ -257,17 +289,20 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
         let cursor_meta: CursorMetadata = serde_yaml::from_str(&fm)
             .with_context(|| "Failed to parse Cursor frontmatter")?;
 
-        let mut github_meta = GithubMetadata::default();
-        github_meta.description = cursor_meta.description;
-
-        // Convert globs and alwaysApply to applyTo
-        if cursor_meta.always_apply == Some(true) {
-            github_meta.apply_to = Some("**".to_string());
-        } else if let Some(globs) = cursor_meta.globs {
-            if !globs.is_empty() {
-                github_meta.apply_to = Some(globs.join(","));
-            }
-        }
+        let github_meta = GithubMetadata {
+            description: cursor_meta.description,
+            apply_to: if cursor_meta.always_apply == Some(true) {
+                Some("**".to_string())
+            } else if let Some(globs) = cursor_meta.globs {
+                if !globs.is_empty() {
+                    Some(globs.join(","))
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
+        };
 
         Some(github_meta)
     } else {
@@ -276,8 +311,8 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
 
     // Write the converted file
     let output_content = if let Some(meta) = github_metadata {
-        let frontmatter_yaml = serde_yaml::to_string(&meta)
-            .with_context(|| "Failed to serialize GitHub metadata")?;
+        let frontmatter_yaml =
+            serde_yaml::to_string(&meta).with_context(|| "Failed to serialize GitHub metadata")?;
         format!("---\n{}---\n\n{}", frontmatter_yaml, body)
     } else {
         body
@@ -297,8 +332,8 @@ fn convert_md_to_mdc(source: &Path, target: &Path) -> Result<()> {
 
     // Convert GitHub metadata to Cursor metadata
     let cursor_metadata = if let Some(fm) = frontmatter {
-        let github_meta: GithubMetadata = serde_yaml::from_str(&fm)
-            .with_context(|| "Failed to parse GitHub frontmatter")?;
+        let github_meta: GithubMetadata =
+            serde_yaml::from_str(&fm).with_context(|| "Failed to parse GitHub frontmatter")?;
 
         let mut cursor_meta = CursorMetadata::default();
         cursor_meta.description = github_meta.description;
@@ -310,11 +345,8 @@ fn convert_md_to_mdc(source: &Path, target: &Path) -> Result<()> {
                 cursor_meta.globs = Some(vec![]);
             } else {
                 cursor_meta.always_apply = Some(false);
-                cursor_meta.globs = Some(
-                    apply_to.split(',')
-                        .map(|s| s.trim().to_string())
-                        .collect()
-                );
+                cursor_meta.globs =
+                    Some(apply_to.split(',').map(|s| s.trim().to_string()).collect());
             }
         }
 
@@ -325,8 +357,8 @@ fn convert_md_to_mdc(source: &Path, target: &Path) -> Result<()> {
 
     // Write the converted file
     let output_content = if let Some(meta) = cursor_metadata {
-        let frontmatter_yaml = serde_yaml::to_string(&meta)
-            .with_context(|| "Failed to serialize Cursor metadata")?;
+        let frontmatter_yaml =
+            serde_yaml::to_string(&meta).with_context(|| "Failed to serialize Cursor metadata")?;
         format!("---\n{}---\n\n{}", frontmatter_yaml, body)
     } else {
         body
@@ -397,5 +429,38 @@ This is the rule content."#;
         let (frontmatter, body) = parse_frontmatter(content).unwrap();
         assert!(frontmatter.is_none());
         assert_eq!(body, content);
+    }
+
+    #[test]
+    fn test_comma_separated_globs() {
+        let content = r#"---
+description: "Test comma-separated globs"
+globs: "**/optimization*/**,**/integration*/**"
+alwaysApply: false
+---
+
+This is a test rule with comma-separated globs."#;
+
+        let (frontmatter, body) = parse_frontmatter(content).unwrap();
+        assert!(frontmatter.is_some());
+
+        // Test that the frontmatter can be parsed correctly
+        let cursor_meta: CursorMetadata = serde_yaml::from_str(&frontmatter.unwrap()).unwrap();
+        assert_eq!(
+            cursor_meta.description,
+            Some("Test comma-separated globs".to_string())
+        );
+        assert_eq!(
+            cursor_meta.globs,
+            Some(vec![
+                "**/optimization*/**".to_string(),
+                "**/integration*/**".to_string()
+            ])
+        );
+        assert_eq!(cursor_meta.always_apply, Some(false));
+        assert_eq!(
+            body.trim(),
+            "This is a test rule with comma-separated globs."
+        );
     }
 }
