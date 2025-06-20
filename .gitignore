@@ -1,0 +1,68 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo files
+Cargo.lock
+
+# IDE and editor files
+.vscode/
+.specstory
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux files
+*~
+.directory
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test directories and output
+/test_input/
+/test_output/
+/test_reverse/
+/custom_output/
+
+# Example output directories (for testing)
+/.cursor/
+/.github/
+
+# Coverage reports
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Documentation build
+/book/
+/mdbook/
+
+# Release artifacts
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Backup files
+*.bak
+*.backup

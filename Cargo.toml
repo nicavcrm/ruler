@@ -1,0 +1,14 @@
+[package]
+name = "ruler"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to convert between Cursor rules and GitHub Copilot instructions"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+anyhow = "1.0"
+walkdir = "2.0"
+regex = "1.0"
