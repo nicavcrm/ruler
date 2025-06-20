@@ -158,6 +158,9 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
+    let mut success_count = 0;
+    let mut error_count = 0;
+
     for mdc_file in mdc_files {
         let relative_path = mdc_file
             .strip_prefix(from_dir)
@@ -173,19 +176,37 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
 
         // Create parent directories if they don't exist
         if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+            if let Err(e) = fs::create_dir_all(parent) {
+                eprintln!("Error creating directory {}: {}", parent.display(), e);
+                continue;
+            }
         }
 
-        convert_mdc_to_md(&mdc_file, &target_path)?;
-        println!(
-            "Converted: {} -> {}",
-            mdc_file.display(),
-            target_path.display()
-        );
+        match convert_mdc_to_md(&mdc_file, &target_path) {
+            Ok(()) => {
+                println!(
+                    "Converted: {} -> {}",
+                    mdc_file.display(),
+                    target_path.display()
+                );
+                success_count += 1;
+            }
+            Err(e) => {
+                eprintln!("Error converting {}: {}", mdc_file.display(), e);
+                error_count += 1;
+                continue;
+            }
+        }
     }
 
-    println!("Conversion completed successfully!");
+    if error_count > 0 {
+        println!(
+            "Conversion completed with {} successes and {} errors.",
+            success_count, error_count
+        );
+    } else {
+        println!("Conversion completed successfully!");
+    }
     Ok(())
 }
 
@@ -206,6 +227,9 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
+    let mut success_count = 0;
+    let mut error_count = 0;
+
     for md_file in md_files {
         let relative_path = md_file
             .strip_prefix(from_dir)
@@ -224,19 +248,37 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
 
         // Create parent directories if they don't exist
         if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
+            if let Err(e) = fs::create_dir_all(parent) {
+                eprintln!("Error creating directory {}: {}", parent.display(), e);
+                continue;
+            }
         }
 
-        convert_md_to_mdc(&md_file, &target_path)?;
-        println!(
-            "Converted: {} -> {}",
-            md_file.display(),
-            target_path.display()
-        );
+        match convert_md_to_mdc(&md_file, &target_path) {
+            Ok(()) => {
+                println!(
+                    "Converted: {} -> {}",
+                    md_file.display(),
+                    target_path.display()
+                );
+                success_count += 1;
+            }
+            Err(e) => {
+                eprintln!("Error converting {}: {}", md_file.display(), e);
+                error_count += 1;
+                continue;
+            }
+        }
     }
 
-    println!("Conversion completed successfully!");
+    if error_count > 0 {
+        println!(
+            "Conversion completed with {} successes and {} errors.",
+            success_count, error_count
+        );
+    } else {
+        println!("Conversion completed successfully!");
+    }
     Ok(())
 }
 

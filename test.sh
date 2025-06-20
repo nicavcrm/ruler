@@ -326,7 +326,7 @@ validate_conversions() {
 
     # Check always apply conversion
     if [ -f "$OUTPUT_DIR/github/always-apply.instructions.md" ]; then
-        if grep -q 'applyTo: "\*\*"' "$OUTPUT_DIR/github/always-apply.instructions.md"; then
+        if grep -q "applyTo.*\*\*" "$OUTPUT_DIR/github/always-apply.instructions.md"; then
             print_success "alwaysApply correctly converted to applyTo: **"
         else
             print_error "alwaysApply conversion validation failed"
