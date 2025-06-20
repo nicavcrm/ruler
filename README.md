@@ -225,12 +225,6 @@ cargo test
 make unit-test
 ```
 
-#### Development Workflow
-Before committing code:
-```bash
-make dev-check  # Runs fmt, lint, check, unit-test, and quick-test
-```
-
 ### Test Coverage
 
 The test suite covers:
@@ -271,9 +265,6 @@ make check
 - **YAML Format Compatibility**: The tool handles non-standard YAML formats (like `globs: "pattern1", "pattern2"`) by preprocessing them into valid YAML before parsing. This ensures maximum compatibility with existing rule files.
 - **Error Handling**: If individual files fail to parse, the tool reports the error and continues processing other files rather than aborting the entire conversion.
 
-## Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/ruler/issues).
 
 ## License
 
