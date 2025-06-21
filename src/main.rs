@@ -178,23 +178,23 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
     fs::create_dir_all(to_dir)
         .with_context(|| format!("Failed to create directory: {}", to_dir.display()))?;
 
-    // Find all .mdc files in the source directory
-    let mdc_files = find_files_with_extension(from_dir, "mdc")?;
+    // Find all .mdc and .md files in the source directory
+    let source_files = find_cursor_files(from_dir)?;
 
-    if mdc_files.is_empty() {
-        println!("No .mdc files found in {}", from_dir.display());
+    if source_files.is_empty() {
+        println!("No .mdc or .md files found in {}", from_dir.display());
         return Ok(());
     }
 
     let mut success_count = 0;
     let mut error_count = 0;
 
-    for mdc_file in mdc_files {
-        let relative_path = mdc_file
+    for source_file in source_files {
+        let relative_path = source_file
             .strip_prefix(from_dir)
             .with_context(|| "Failed to get relative path")?;
 
-        // Change extension from .mdc to .instructions.md
+        // Change extension from .mdc/.md to .instructions.md
         let mut target_path = to_dir.join(relative_path);
         let file_stem = target_path
             .file_stem()
@@ -210,17 +210,17 @@ fn convert_cursor_to_github(from_dir: &Path, to_dir: &Path) -> Result<()> {
             }
         }
 
-        match convert_mdc_to_md(&mdc_file, &target_path) {
+        match convert_mdc_to_md(&source_file, &target_path) {
             Ok(()) => {
                 println!(
                     "Converted: {} -> {}",
-                    mdc_file.display(),
+                    source_file.display(),
                     target_path.display()
                 );
                 success_count += 1;
             }
             Err(e) => {
-                eprintln!("Error converting {}: {}", mdc_file.display(), e);
+                eprintln!("Error converting {}: {}", source_file.display(), e);
                 error_count += 1;
                 continue;
             }
@@ -247,29 +247,31 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
     fs::create_dir_all(to_dir)
         .with_context(|| format!("Failed to create directory: {}", to_dir.display()))?;
 
-    // Find all .instructions.md files in the source directory
-    let md_files = find_instruction_files(from_dir)?;
+    // Find all .md and .instructions.md files in the source directory
+    let source_files = find_github_files(from_dir)?;
 
-    if md_files.is_empty() {
-        println!("No .instructions.md files found in {}", from_dir.display());
+    if source_files.is_empty() {
+        println!("No .md or .instructions.md files found in {}", from_dir.display());
         return Ok(());
     }
 
     let mut success_count = 0;
     let mut error_count = 0;
 
-    for md_file in md_files {
-        let relative_path = md_file
+    for source_file in source_files {
+        let relative_path = source_file
             .strip_prefix(from_dir)
             .with_context(|| "Failed to get relative path")?;
 
-        // Change extension from .instructions.md to .mdc
+        // Change extension from .instructions.md/.md to .mdc
         let mut target_path = to_dir.join(relative_path);
         if let Some(file_name) = target_path.file_name().and_then(|n| n.to_str()) {
             if let Some(base_name) = file_name.strip_suffix(".instructions.md") {
                 target_path.set_file_name(format!("{}.mdc", base_name));
+            } else if let Some(base_name) = file_name.strip_suffix(".md") {
+                target_path.set_file_name(format!("{}.mdc", base_name));
             } else {
-                // Fallback for files that don't end with .instructions.md
+                // Fallback
                 target_path.set_extension("mdc");
             }
         }
@@ -282,17 +284,17 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
             }
         }
 
-        match convert_md_to_mdc(&md_file, &target_path) {
+        match convert_md_to_mdc(&source_file, &target_path) {
             Ok(()) => {
                 println!(
                     "Converted: {} -> {}",
-                    md_file.display(),
+                    source_file.display(),
                     target_path.display()
                 );
                 success_count += 1;
             }
             Err(e) => {
-                eprintln!("Error converting {}: {}", md_file.display(), e);
+                eprintln!("Error converting {}: {}", source_file.display(), e);
                 error_count += 1;
                 continue;
             }
@@ -310,7 +312,7 @@ fn convert_github_to_cursor(from_dir: &Path, to_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn find_files_with_extension(dir: &Path, extension: &str) -> Result<Vec<PathBuf>> {
+fn find_cursor_files(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for entry in WalkDir::new(dir) {
@@ -319,7 +321,8 @@ fn find_files_with_extension(dir: &Path, extension: &str) -> Result<Vec<PathBuf>
 
         if path.is_file() {
             if let Some(ext) = path.extension() {
-                if ext.to_string_lossy().eq_ignore_ascii_case(extension) {
+                let ext_str = ext.to_string_lossy();
+                if ext_str.eq_ignore_ascii_case("mdc") || ext_str.eq_ignore_ascii_case("md") {
                     files.push(path.to_path_buf());
                 }
             }
@@ -329,7 +332,7 @@ fn find_files_with_extension(dir: &Path, extension: &str) -> Result<Vec<PathBuf>
     Ok(files)
 }
 
-fn find_instruction_files(dir: &Path) -> Result<Vec<PathBuf>> {
+fn find_github_files(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
 
     for entry in WalkDir::new(dir) {
@@ -338,7 +341,7 @@ fn find_instruction_files(dir: &Path) -> Result<Vec<PathBuf>> {
 
         if path.is_file() {
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if file_name.ends_with(".instructions.md") {
+                if file_name.ends_with(".instructions.md") || file_name.ends_with(".md") {
                     files.push(path.to_path_buf());
                 }
             }
