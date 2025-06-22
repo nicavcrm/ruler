@@ -1,0 +1,9 @@
+---
+description: "Nested directory test"
+globs: ["**/*.vue"]
+alwaysApply: false
+---
+
+# Nested Rule Test
+
+This tests conversion of files in nested directories.

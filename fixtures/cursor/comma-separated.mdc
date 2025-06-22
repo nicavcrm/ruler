@@ -1,0 +1,9 @@
+---
+description: "Comma-separated string format test"
+globs: "**/optimization*/**,**/integration*/**,*.spec.ts"
+alwaysApply: false
+---
+
+# Comma-Separated Format Test
+
+This tests comma-separated globs in string format.

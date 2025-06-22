@@ -109,6 +109,28 @@ Both source and target directories are now optional and have sensible defaults:
 | `globs` (array/string) | `applyTo` (string) | `c2g`: Joins arrays or parses comma-separated strings into a comma-separated format.<br>`g2c`: Splits the comma-separated string into an array. Supports multiple input formats. |
 | `alwaysApply` (bool) | `applyTo` (string) | `c2g`: If `true`, sets `applyTo` to `"**"`.<br>`g2c`: If `applyTo` is `"**"`, sets `alwaysApply` to `true`. |
 
+### Empty Metadata Fields
+
+When converting from Cursor to GitHub Copilot (`c2g`), if the original `.mdc` file has empty metadata fields, the output preserves the field structure:
+
+**Input (Cursor `.mdc`):**
+```yaml
+---
+description:
+globs:
+---
+```
+
+**Output (GitHub Copilot `.instructions.md`):**
+```yaml
+---
+description:
+applyTo:
+---
+```
+
+This ensures that the YAML structure is maintained rather than being serialized as `{}` or showing quoted empty strings.
+
 ## Flexible Configuration
 
 ### Globs Field Format
@@ -163,6 +185,34 @@ description: "Enforce TypeScript best practices"
 globs: "**/src/*.ts,**/src/*.tsx"  # Comma-separated string
 alwaysApply: false
 ---
+```
+
+### Empty Metadata Fields Example
+
+When fields are present but empty in the source:
+
+```yaml
+---
+description:
+globs:
+---
+
+# Rule with Empty Metadata
+
+This rule has empty metadata fields that should be preserved in structure.
+```
+
+After conversion with `ruler c2g`, the output maintains the field structure:
+
+```yaml
+---
+description:
+applyTo:
+---
+
+# Rule with Empty Metadata
+
+This rule has empty metadata fields that should be preserved in structure.
 ```
 
 ### GitHub Copilot Instruction (`.github/instructions/typescript.instructions.md`)

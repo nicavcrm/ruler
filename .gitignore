@@ -28,6 +28,13 @@ Desktop.ini
 *~
 .directory
 
+# Test artifacts and temporary directories
+test_temp/
+quick_test/
+test_*/
+*_test/
+test_output*/
+
 # Temporary files
 *.tmp
 *.temp

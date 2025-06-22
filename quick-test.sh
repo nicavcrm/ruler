@@ -47,18 +47,9 @@ rm -rf "$TEST_DIR"
 mkdir -p "$TEST_DIR/input"
 mkdir -p "$TEST_DIR/output"
 
-# Create test file
-cat > "$TEST_DIR/input/test.mdc" << 'EOF'
----
-description: "Quick test"
-globs: "*.ts,*.js"
-alwaysApply: false
----
-
-# Quick Test
-
-This is a quick integration test.
-EOF
+# Copy test files from fixtures
+cp fixtures/cursor/single-string.mdc "$TEST_DIR/input/test.mdc"
+cp fixtures/cursor/empty-metadata.mdc "$TEST_DIR/input/empty-test.mdc"
 
 # Test conversion c2g
 if cargo run --quiet -- c2g --from "$TEST_DIR/input" --to "$TEST_DIR/output" > /dev/null 2>&1; then
@@ -72,8 +63,8 @@ fi
 if [ -f "$TEST_DIR/output/test.instructions.md" ]; then
     print_status "Output file created correctly"
 
-    # Check content
-    if grep -q "applyTo.*ts.*js" "$TEST_DIR/output/test.instructions.md"; then
+    # Check content (test.mdc is single-string fixture with *.js)
+    if grep -q "applyTo.*js" "$TEST_DIR/output/test.instructions.md"; then
         print_status "Content converted correctly"
     else
         print_error "Content conversion failed"
@@ -81,6 +72,20 @@ if [ -f "$TEST_DIR/output/test.instructions.md" ]; then
     fi
 else
     print_error "Output file not found"
+    exit 1
+fi
+
+# Check empty metadata output
+if [ -f "$TEST_DIR/output/empty-test.instructions.md" ]; then
+    if grep -A2 "^---" "$TEST_DIR/output/empty-test.instructions.md" | grep -q "^description:$" && \
+       grep -A2 "^---" "$TEST_DIR/output/empty-test.instructions.md" | grep -q "^applyTo:$"; then
+        print_status "Empty metadata fields preserved correctly"
+    else
+        print_error "Empty metadata preservation failed"
+        exit 1
+    fi
+else
+    print_error "Empty metadata test output file not found"
     exit 1
 fi
 

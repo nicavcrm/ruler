@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use super::common::{
-    find_cursor_files, parse_frontmatter, preprocess_frontmatter,
+    find_cursor_files, parse_frontmatter_with_field_info, preprocess_frontmatter,
     CursorMetadata, GithubMetadata
 };
 
@@ -80,7 +80,7 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
     let content = fs::read_to_string(source)
         .with_context(|| format!("Failed to read file: {}", source.display()))?;
 
-    let (frontmatter, body) = parse_frontmatter(&content)?;
+    let (frontmatter, body, field_info) = parse_frontmatter_with_field_info(&content)?;
 
     // Convert Cursor metadata to GitHub metadata
     let github_metadata = if let Some(fm) = frontmatter {
@@ -103,6 +103,8 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
             } else {
                 None
             },
+            description_present: field_info.description_present,
+            apply_to_present: field_info.globs_present,
         };
 
         Some(github_meta)
@@ -112,8 +114,7 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
 
     // Write the converted file
     let output_content = if let Some(meta) = github_metadata {
-        let frontmatter_yaml =
-            serde_yaml::to_string(&meta).with_context(|| "Failed to serialize GitHub metadata")?;
+        let frontmatter_yaml = serialize_github_metadata(&meta);
         format!("---\n{}---\n\n{}", frontmatter_yaml, body)
     } else {
         body
@@ -123,4 +124,38 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
         .with_context(|| format!("Failed to write file: {}", target.display()))?;
 
     Ok(())
+}
+
+fn serialize_github_metadata(meta: &GithubMetadata) -> String {
+    let mut yaml = String::new();
+
+    if meta.description_present {
+        if let Some(desc) = &meta.description {
+            if desc.is_empty() {
+                yaml.push_str("description:\n");
+            } else {
+                yaml.push_str(&format!("description: \"{}\"\n", desc));
+            }
+        } else {
+            yaml.push_str("description:\n");
+        }
+    } else if meta.description.is_some() {
+        yaml.push_str(&format!("description: \"{}\"\n", meta.description.as_ref().unwrap()));
+    }
+
+    if meta.apply_to_present {
+        if let Some(apply_to) = &meta.apply_to {
+            if apply_to.is_empty() {
+                yaml.push_str("applyTo:\n");
+            } else {
+                yaml.push_str(&format!("applyTo: \"{}\"\n", apply_to));
+            }
+        } else {
+            yaml.push_str("applyTo:\n");
+        }
+    } else if meta.apply_to.is_some() {
+        yaml.push_str(&format!("applyTo: \"{}\"\n", meta.apply_to.as_ref().unwrap()));
+    }
+
+    yaml
 }

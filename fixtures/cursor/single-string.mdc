@@ -1,0 +1,9 @@
+---
+description: "Single string format test"
+globs: "*.js"
+alwaysApply: false
+---
+
+# Single String Format Test
+
+This tests a single string format for globs.

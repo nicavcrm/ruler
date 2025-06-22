@@ -1,0 +1,9 @@
+---
+description: "Standard array format test"
+globs: ["*.ts", "*.tsx"]
+alwaysApply: false
+---
+
+# Standard Array Format Test
+
+This tests the standard array format for globs.

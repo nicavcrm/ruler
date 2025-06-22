@@ -11,6 +11,7 @@ pub struct CursorMetadata {
     pub description: Option<String>,
     #[serde(
         skip_serializing_if = "Option::is_none",
+        default,
         deserialize_with = "deserialize_globs"
     )]
     pub globs: Option<Vec<String>>,
@@ -24,12 +25,17 @@ pub struct CursorMetadata {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GithubMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(rename = "applyTo", skip_serializing_if = "Option::is_none")]
     pub apply_to: Option<String>,
+    #[serde(skip_deserializing)]
+    pub description_present: bool,
+    #[serde(skip_deserializing)]
+    pub apply_to_present: bool,
 }
 
 // Custom deserializer to handle multiple formats for globs:
@@ -155,15 +161,20 @@ pub fn find_github_files(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 pub fn parse_frontmatter(content: &str) -> Result<(Option<String>, String)> {
+    let (frontmatter, body, _) = parse_frontmatter_with_field_info(content)?;
+    Ok((frontmatter, body))
+}
+
+pub fn parse_frontmatter_with_field_info(content: &str) -> Result<(Option<String>, String, FieldInfo)> {
     let content = content.trim();
 
     if !content.starts_with("---") {
-        return Ok((None, content.to_string()));
+        return Ok((None, content.to_string(), FieldInfo::default()));
     }
 
     let lines: Vec<&str> = content.lines().collect();
     if lines.len() < 3 {
-        return Ok((None, content.to_string()));
+        return Ok((None, content.to_string(), FieldInfo::default()));
     }
 
     // Find the closing ---
@@ -183,10 +194,35 @@ pub fn parse_frontmatter(content: &str) -> Result<(Option<String>, String)> {
             } else {
                 String::new()
             };
-            Ok((Some(frontmatter), body))
+
+            // Analyze which fields are present
+            let field_info = analyze_frontmatter_fields(&frontmatter);
+
+            Ok((Some(frontmatter), body, field_info))
         }
-        None => Ok((None, content.to_string())),
+        None => Ok((None, content.to_string(), FieldInfo::default())),
     }
+}
+
+#[derive(Debug, Default)]
+pub struct FieldInfo {
+    pub description_present: bool,
+    pub globs_present: bool,
+}
+
+fn analyze_frontmatter_fields(frontmatter: &str) -> FieldInfo {
+    let mut info = FieldInfo::default();
+
+    for line in frontmatter.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("description:") {
+            info.description_present = true;
+        } else if trimmed.starts_with("globs:") {
+            info.globs_present = true;
+        }
+    }
+
+    info
 }
 
 pub fn preprocess_frontmatter(frontmatter: &str) -> String {

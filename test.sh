@@ -17,6 +17,7 @@ TEST_DIR="test_temp"
 CURSOR_DIR="$TEST_DIR/.cursor/rules"
 GITHUB_DIR="$TEST_DIR/.github/instructions"
 OUTPUT_DIR="$TEST_DIR/output"
+FIXTURES_DIR="fixtures"
 
 # Helper functions
 print_header() {
@@ -60,113 +61,65 @@ setup_test_env() {
 
 # Create test files with various formats
 create_test_files() {
-    print_header "Creating test files"
+    print_header "Setting up test files from fixtures"
 
-    # Test 1: Standard array format
-    cat > "$CURSOR_DIR/standard-array.mdc" << 'EOF'
----
-description: "Standard array format test"
-globs: ["*.ts", "*.tsx"]
-alwaysApply: false
----
+    # Copy all cursor fixture files to test directory
+    if [ -d "$FIXTURES_DIR/cursor" ]; then
+        cp -r "$FIXTURES_DIR/cursor"/* "$CURSOR_DIR/"
+        print_success "Cursor test files copied from fixtures"
+    else
+        print_error "Cursor fixtures directory not found: $FIXTURES_DIR/cursor"
+        exit 1
+    fi
 
-# Standard Array Format Test
+    # Verify key test files exist
+    local required_files=(
+        "$CURSOR_DIR/standard-array.mdc"
+        "$CURSOR_DIR/single-string.mdc"
+        "$CURSOR_DIR/comma-separated.mdc"
+        "$CURSOR_DIR/always-apply.mdc"
+        "$CURSOR_DIR/empty-metadata.mdc"
+        "$CURSOR_DIR/no-frontmatter.mdc"
+        "$CURSOR_DIR/nested/deep/nested-rule.mdc"
+    )
 
-This tests the standard array format for globs.
-EOF
+    for file in "${required_files[@]}"; do
+        if [ ! -f "$file" ]; then
+            print_error "Required test file missing: $file"
+            exit 1
+        fi
+    done
 
-    # Test 2: Single string format
-    cat > "$CURSOR_DIR/single-string.mdc" << 'EOF'
----
-description: "Single string format test"
-globs: "*.js"
-alwaysApply: false
----
-
-# Single String Format Test
-
-This tests a single string format for globs.
-EOF
-
-    # Test 3: Comma-separated string format
-    cat > "$CURSOR_DIR/comma-separated.mdc" << 'EOF'
----
-description: "Comma-separated string format test"
-globs: "**/optimization*/**,**/integration*/**,*.spec.ts"
-alwaysApply: false
----
-
-# Comma-Separated Format Test
-
-This tests comma-separated globs in string format.
-EOF
-
-    # Test 4: Always apply format
-    cat > "$CURSOR_DIR/always-apply.mdc" << 'EOF'
----
-description: "Always apply test"
-globs: []
-alwaysApply: true
----
-
-# Always Apply Test
-
-This rule should always apply to all files.
-EOF
-
-    # Test 5: No frontmatter
-    cat > "$CURSOR_DIR/no-frontmatter.mdc" << 'EOF'
-# No Frontmatter Test
-
-This file has no frontmatter and should be converted as-is.
-EOF
-
-    # Test 6: Nested directory
-    mkdir -p "$CURSOR_DIR/nested/deep"
-    cat > "$CURSOR_DIR/nested/deep/nested-rule.mdc" << 'EOF'
----
-description: "Nested directory test"
-globs: ["**/*.vue"]
-alwaysApply: false
----
-
-# Nested Rule Test
-
-This tests conversion of files in nested directories.
-EOF
-
-    print_success "Test files created"
+    print_success "All test files verified"
 }
 
 # Create reverse test files (GitHub format)
 create_github_test_files() {
-    print_header "Creating GitHub instruction test files"
+    print_header "Setting up GitHub instruction test files from fixtures"
 
-    # Test file for reverse conversion
-    cat > "$GITHUB_DIR/reverse-test.instructions.md" << 'EOF'
----
-description: "Reverse conversion test"
-applyTo: "*.py,*.pyx,**test**"
----
+    # Copy all GitHub fixture files to test directory
+    if [ -d "$FIXTURES_DIR/github" ]; then
+        cp -r "$FIXTURES_DIR/github"/* "$GITHUB_DIR/"
+        print_success "GitHub instruction files copied from fixtures"
+    else
+        print_error "GitHub fixtures directory not found: $FIXTURES_DIR/github"
+        exit 1
+    fi
 
-# Reverse Conversion Test
+    # Verify key test files exist
+    local required_files=(
+        "$GITHUB_DIR/reverse-test.instructions.md"
+        "$GITHUB_DIR/universal.instructions.md"
+    )
 
-This tests conversion from GitHub instructions back to Cursor rules.
-EOF
+    for file in "${required_files[@]}"; do
+        if [ ! -f "$file" ]; then
+            print_error "Required GitHub test file missing: $file"
+            exit 1
+        fi
+    done
 
-    # Test file with universal apply
-    cat > "$GITHUB_DIR/universal.instructions.md" << 'EOF'
----
-description: "Universal apply test"
-applyTo: "**"
----
-
-# Universal Apply Test
-
-This should convert to alwaysApply: true.
-EOF
-
-    print_success "GitHub instruction files created"
+    print_success "All GitHub test files verified"
 }
 
 # Run unit tests
@@ -218,6 +171,7 @@ test_c2g_conversion() {
         "$OUTPUT_DIR/github/single-string.instructions.md"
         "$OUTPUT_DIR/github/comma-separated.instructions.md"
         "$OUTPUT_DIR/github/always-apply.instructions.md"
+        "$OUTPUT_DIR/github/empty-metadata.instructions.md"
         "$OUTPUT_DIR/github/no-frontmatter.instructions.md"
         "$OUTPUT_DIR/github/nested/deep/nested-rule.instructions.md"
     )
@@ -290,7 +244,7 @@ test_default_directories() {
     mkdir -p "$default_test_dir/.github/instructions"
 
     # Copy a test file to default location
-    cp "$CURSOR_DIR/standard-array.mdc" "$default_test_dir/.cursor/rules/"
+    cp "$FIXTURES_DIR/cursor/standard-array.mdc" "$default_test_dir/.cursor/rules/"
 
     # Test c2g with defaults (run from test directory)
     local original_dir=$(pwd)
@@ -333,6 +287,17 @@ validate_conversions() {
         fi
     fi
 
+    # Check empty metadata conversion
+    if [ -f "$OUTPUT_DIR/github/empty-metadata.instructions.md" ]; then
+        if grep -A2 "^---" "$OUTPUT_DIR/github/empty-metadata.instructions.md" | grep -q "^description:$" && \
+           grep -A2 "^---" "$OUTPUT_DIR/github/empty-metadata.instructions.md" | grep -q "^applyTo:$"; then
+            print_success "Empty metadata fields correctly preserved in output"
+        else
+            print_error "Empty metadata fields conversion validation failed"
+            print_warning "Expected 'description:' and 'applyTo:' with no values"
+        fi
+    fi
+
     # Check reverse conversion
     if [ -f "$OUTPUT_DIR/cursor/universal.mdc" ]; then
         if grep -q "alwaysApply: true" "$OUTPUT_DIR/cursor/universal.mdc"; then
@@ -354,17 +319,8 @@ test_error_handling() {
         print_warning "Should fail with non-existent directory, but didn't"
     fi
 
-    # Test with invalid YAML (create a malformed file)
-    mkdir -p "$OUTPUT_DIR/malformed"
-    cat > "$OUTPUT_DIR/malformed/bad.mdc" << 'EOF'
----
-description: "Malformed YAML
-globs: [unclosed array
----
-Test content
-EOF
-
-    if ! cargo run --quiet -- c2g --from "$OUTPUT_DIR/malformed" --to "$OUTPUT_DIR/error-output" 2>/dev/null; then
+    # Test with invalid YAML (use malformed fixture)
+    if ! cargo run --quiet -- c2g --from "$FIXTURES_DIR/malformed" --to "$OUTPUT_DIR/error-output" 2>/dev/null; then
         print_success "Properly handles malformed YAML"
     else
         print_warning "Should fail with malformed YAML, but didn't"
