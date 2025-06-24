@@ -106,7 +106,7 @@ Both source and target directories are now optional and have sensible defaults:
 | Cursor (`.mdc`) | GitHub Copilot (`.md`) | Conversion Logic |
 | :--- | :--- | :--- |
 | `description` | `description` | Direct 1:1 mapping. |
-| `globs` (array/string) | `applyTo` (string) | `c2g`: Joins arrays or parses comma-separated strings into a comma-separated format.<br>`g2c`: Splits the comma-separated string into an array. Supports multiple input formats. |
+| `globs` (array/string) | `applyTo` (string) | `c2g`: Joins arrays or parses comma-separated strings into a comma-separated format. Automatically converts `.mdc` extensions to `.instructions.md`.<br>`g2c`: Splits the comma-separated string into an array. Supports multiple input formats. |
 | `alwaysApply` (bool) | `applyTo` (string) | `c2g`: If `true`, sets `applyTo` to `"**"`.<br>`g2c`: If `applyTo` is `"**"`, sets `alwaysApply` to `true`. |
 
 ### Empty Metadata Fields
@@ -130,6 +130,28 @@ applyTo:
 ```
 
 This ensures that the YAML structure is maintained rather than being serialized as `{}` or showing quoted empty strings.
+
+### Automatic File Extension Conversion
+
+When converting from Cursor to GitHub Copilot (`c2g`), the tool automatically converts `.mdc` file extensions in glob patterns to `.instructions.md`:
+
+**Input (Cursor `.mdc`):**
+```yaml
+---
+description: "Rule targeting other mdc files"
+globs: ["[name].mdc", "*.ts"]
+---
+```
+
+**Output (GitHub Copilot `.instructions.md`):**
+```yaml
+---
+description: "Rule targeting other mdc files"
+applyTo: "[name].instructions.md,*.ts"
+---
+```
+
+This ensures that rules targeting `.mdc` files are automatically updated to target their corresponding `.instructions.md` files after conversion.
 
 ## Flexible Configuration
 

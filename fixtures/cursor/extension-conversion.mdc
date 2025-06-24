@@ -1,0 +1,8 @@
+---
+description: "Test .mdc to .instructions.md conversion"
+globs: ["[name].mdc", "*.ts"]
+---
+
+# Extension Conversion Test
+
+This tests that .mdc extensions in globs are converted to .instructions.md.

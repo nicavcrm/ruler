@@ -80,6 +80,7 @@ create_test_files() {
         "$CURSOR_DIR/always-apply.mdc"
         "$CURSOR_DIR/empty-metadata.mdc"
         "$CURSOR_DIR/no-frontmatter.mdc"
+        "$CURSOR_DIR/extension-conversion.mdc"
         "$CURSOR_DIR/nested/deep/nested-rule.mdc"
     )
 
@@ -173,6 +174,7 @@ test_c2g_conversion() {
         "$OUTPUT_DIR/github/always-apply.instructions.md"
         "$OUTPUT_DIR/github/empty-metadata.instructions.md"
         "$OUTPUT_DIR/github/no-frontmatter.instructions.md"
+        "$OUTPUT_DIR/github/extension-conversion.instructions.md"
         "$OUTPUT_DIR/github/nested/deep/nested-rule.instructions.md"
     )
 
@@ -295,6 +297,16 @@ validate_conversions() {
         else
             print_error "Empty metadata fields conversion validation failed"
             print_warning "Expected 'description:' and 'applyTo:' with no values"
+        fi
+    fi
+
+    # Check extension conversion (.mdc to .instructions.md)
+    if [ -f "$OUTPUT_DIR/github/extension-conversion.instructions.md" ]; then
+        if grep -q "applyTo.*\[name\]\.instructions\.md" "$OUTPUT_DIR/github/extension-conversion.instructions.md"; then
+            print_success ".mdc extensions correctly converted to .instructions.md"
+        else
+            print_error "Extension conversion validation failed"
+            print_warning "Expected '[name].instructions.md' in applyTo field"
         fi
     fi
 

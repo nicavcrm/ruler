@@ -96,7 +96,17 @@ fn convert_mdc_to_md(source: &Path, target: &Path) -> Result<()> {
                 Some("**".to_string())
             } else if let Some(globs) = cursor_meta.globs {
                 if !globs.is_empty() {
-                    Some(globs.join(","))
+                    // Convert .mdc extensions to .instructions.md
+                    let converted_globs: Vec<String> = globs.iter()
+                        .map(|glob| {
+                            if glob.ends_with(".mdc") {
+                                glob.replace(".mdc", ".instructions.md")
+                            } else {
+                                glob.clone()
+                            }
+                        })
+                        .collect();
+                    Some(converted_globs.join(","))
                 } else {
                     None
                 }

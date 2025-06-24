@@ -12,6 +12,7 @@ fixtures/
 │   ├── comma-separated.mdc   # Tests comma-separated string format
 │   ├── always-apply.mdc      # Tests alwaysApply: true conversion
 │   ├── empty-metadata.mdc    # Tests empty metadata field preservation
+│   ├── extension-conversion.mdc # Tests .mdc to .instructions.md conversion in globs
 │   ├── no-frontmatter.mdc    # Tests files without frontmatter
 │   └── nested/deep/          # Tests nested directory structure
 │       └── nested-rule.mdc
@@ -31,6 +32,7 @@ fixtures/
 - **comma-separated.mdc**: Tests comma-separated format: `"glob1,glob2,glob3"`
 - **always-apply.mdc**: Tests the `alwaysApply: true` field conversion to `applyTo: "**"`
 - **empty-metadata.mdc**: Tests preservation of empty metadata field structure
+- **extension-conversion.mdc**: Tests automatic conversion of `.mdc` extensions to `.instructions.md` in glob patterns
 - **no-frontmatter.mdc**: Tests files without any YAML frontmatter
 - **nested/deep/nested-rule.mdc**: Tests nested directory structure preservation
 
